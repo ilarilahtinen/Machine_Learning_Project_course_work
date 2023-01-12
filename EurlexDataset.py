@@ -1,7 +1,7 @@
 import os
 import torch
 import pickle
-import pandas as pd
+
 import numpy as np
 from sklearn.preprocessing import normalize
 
@@ -27,11 +27,10 @@ def createDataFrame():
                 text=l.replace('\n','')
                 parts=text.split(" ",1)
                 labels.append(parts[0])
-                for label in parts[0].split(","):
-                    if label == "":
-                        continue
-                    else:
-                        label_map[int(label)] = 0
+                if parts[0]!="":
+                    for label in parts[0].split(","):
+                        label_map[label] = 0
+
                 for item in parts[1].split():
                     index,value=tuple(item.split(":"))
                     inputs_train[i-1,int(index)]=float(value)
@@ -48,11 +47,9 @@ def createDataFrame():
                 text=l.replace('\n','')
                 parts=text.split(" ",1)
                 labels.append(parts[0])
-                for label in parts[0].split(","):
-                    if label=="":
-                        continue
-                    else:
-                        label_map[int(label)]=0
+                if parts[0] != "":
+                    for label in parts[0].split(","):
+                        label_map[label]=0
                 for item in parts[1].split():
                     index,value=tuple(item.split(":"))
                     inputs_test[i-1,int(index)]=float(value)
@@ -63,26 +60,28 @@ def createDataFrame():
     for i, k in enumerate(sorted(label_map.keys())):
         label_map[k]=i
 
-
+    print(label_map)
     return df_train,df_test, label_map
 
 class EurLexDataSet(Dataset):
     def __init__(self,df,mode,label_map, clusters=None, candidates_num=None):
         self.mode=mode
         self.df=df
-        self.n_labels=3993
+        self.n_labels=len(label_map)
         self.label_map=label_map
         self.len=len(self.df["input"])
 
         if clusters is not None:
+
             self.candidates_num=candidates_num
             self.clusters=[]
             self.n_clusters_labels=len(clusters)
-            self.map_clusters = np.empty(3993,dtype=np.int64)
+            self.map_clusters = np.empty(self.n_labels,dtype=np.int64)
             for index, labels in enumerate(clusters):
                 self.clusters.append([])
                 for label in labels:
-                    self.clusters[-1].append(label_map[int(label)])
+
+                    self.clusters[-1].append(label_map[str(int(label))])
                 self.map_clusters[self.clusters[-1]]=index
                 self.clusters[-1]=np.array(self.clusters[-1])
             self.clusters=np.array(self.clusters, dtype=object)
@@ -90,20 +89,22 @@ class EurLexDataSet(Dataset):
             self.clusters=None
     def __getitem__(self, idx):
         input= self.df['input'][idx]
-        labels = [self.label_map[int(i)] for i in self.df['label'][idx].split(",") if i!="" and int(i) in self.label_map]
+        labels = [self.label_map[i] for i in self.df['label'][idx].split(",") if i in self.label_map and i!=""]
 
 
 
         if self.clusters is not None:
             label_ids = torch.zeros(self.n_labels)
             label_ids= label_ids.scatter(0, torch.tensor(labels), torch.tensor([1.0 for i in labels]))
-
             cluster_labels = self.map_clusters[labels]
+
 
             cluster_labels_ids = torch.zeros(self.n_clusters_labels)
             cluster_labels_ids = cluster_labels_ids.scatter(0, torch.tensor(cluster_labels), torch.tensor([1.0 for i in cluster_labels]))
-
-            candidates = np.concatenate(self.clusters[cluster_labels], axis=0)
+            if len(cluster_labels)>0:
+                candidates = np.concatenate(self.clusters[cluster_labels], axis=0)
+            else:
+                candidates=[]
 
             if len(candidates) < self.candidates_num:
                 sample = np.random.randint(self.n_clusters_labels, size=self.candidates_num - len(candidates))

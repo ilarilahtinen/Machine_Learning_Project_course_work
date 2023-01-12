@@ -1,5 +1,6 @@
 from EurlexDataset import createDataFrame, EurLexDataSet
 import numpy as np
+import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from model import Classifier
@@ -22,6 +23,7 @@ def train(model,df_train,df_test,label_map,max_len=512, use_clustering=True):
                                  shuffle=True)
         testloader = DataLoader(test_data, batch_size=16,
                                 shuffle=False)
+    model.cuda()
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     for epoch in range(25):
         train_loss =model.one_epoch(epoch,trainloader,optimizer,eval_loader=testloader)
@@ -37,10 +39,12 @@ if __name__ == '__main__':
           f'{len(df_train["input"])} train {len(df_test["input"])} test with {len(label_map)} labels done')
     clusters=np.load('./data/label_cluster.npy', allow_pickle=True)
     #train_data = EurLexDataSet(df_train, "train", label_map, clusters, 516)
-    #print(next(iter(DataLoader(train_data))))
-    model=Classifier(3993)
-    train(model,df_train,df_test,label_map,use_clustering=False)
+    #data=next(iter(DataLoader(train_data)))
+
+    model=Classifier(3993,clusters)
+
+    train(model,df_train,df_test,label_map,use_clustering=True)
 
 
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+

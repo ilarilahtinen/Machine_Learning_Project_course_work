@@ -83,8 +83,8 @@ class Classifier(nn.Module):
                                 new_labels[-1][j]=1.0
                                 break
                 b_start=b_end
-            labels=torch.stack(new_labels).cpu()
-        candidates, group_candidates_scores=  torch.LongTensor(candidates).cpu(), torch.Tensor(group_candidates_scores).cpu()
+            labels=torch.stack(new_labels).cuda()
+        candidates, group_candidates_scores=  torch.LongTensor(candidates).cuda(), torch.Tensor(group_candidates_scores).cuda()
 
 
         embed_weights = self.extreme(candidates)
@@ -144,14 +144,14 @@ class Classifier(nn.Module):
             for step, data in enumerate(dataloader):
                 batch = tuple(t for t in data)
 
-                input_params={'inputs':batch[0]}
+                input_params={'inputs':batch[0].cuda()}
 
                 if mode=='train':
-                    input_params['labels']=batch[1]
+                    input_params['labels']=batch[1].cuda()
 
                     if self.clusters is not None:
-                        input_params['cluster_labels']=batch[2]
-                        input_params['candidates']=batch[3]
+                        input_params['cluster_labels']=batch[2].cuda()
+                        input_params['candidates']=batch[3].cuda()
                 outputs=self(**input_params)
 
                 bar.update(1)

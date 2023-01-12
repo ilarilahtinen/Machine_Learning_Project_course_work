@@ -9,6 +9,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 
 def get_sparse_feature(feature_file):
     x, labels=load_svmlight_file(feature_file, multilabel=True, zero_based=True, offset=1, n_features=5000)
+
     return normalize(x), labels
 
 
