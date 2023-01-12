@@ -34,7 +34,7 @@ def createDataFrame():
                 for item in parts[1].split():
                     index,value=tuple(item.split(":"))
                     inputs_train[i-1,int(index)]=float(value)
-
+    not_in_train=[]
     with open(f'Eurlex/eurlex_test.txt') as f:
         for i,l in enumerate(tqdm.tqdm(f)):
             if(i==0):
@@ -49,18 +49,19 @@ def createDataFrame():
                 labels.append(parts[0])
                 if parts[0] != "":
                     for label in parts[0].split(","):
+                        if label not in label_map:
+                           not_in_train.append(label)
                         label_map[label]=0
                 for item in parts[1].split():
                     index,value=tuple(item.split(":"))
                     inputs_test[i-1,int(index)]=float(value)
 
-
+    print(len(not_in_train))
     df_train={"input":normalize(inputs_train), "label":labels}
     df_test = {"input": normalize(inputs_test), "label": labels}
     for i, k in enumerate(sorted(label_map.keys())):
         label_map[k]=i
 
-    print(label_map)
     return df_train,df_test, label_map
 
 class EurLexDataSet(Dataset):
@@ -88,23 +89,20 @@ class EurLexDataSet(Dataset):
         else:
             self.clusters=None
     def __getitem__(self, idx):
-        input= self.df['input'][idx]
+        inputs= self.df['input'][idx]
         labels = [self.label_map[i] for i in self.df['label'][idx].split(",") if i in self.label_map and i!=""]
-
-
 
         if self.clusters is not None:
             label_ids = torch.zeros(self.n_labels)
-            label_ids= label_ids.scatter(0, torch.tensor(labels), torch.tensor([1.0 for i in labels]))
+            label_ids= label_ids.scatter(0, torch.tensor(labels,dtype=torch.int64), torch.tensor([1.0 for i in labels]))
             cluster_labels = self.map_clusters[labels]
 
-
-            cluster_labels_ids = torch.zeros(self.n_clusters_labels)
+            cluster_labels_ids= torch.zeros(self.n_clusters_labels)
             cluster_labels_ids = cluster_labels_ids.scatter(0, torch.tensor(cluster_labels), torch.tensor([1.0 for i in cluster_labels]))
             if len(cluster_labels)>0:
                 candidates = np.concatenate(self.clusters[cluster_labels], axis=0)
             else:
-                candidates=[]
+                candidates= np.random.randint(self.n_clusters_labels, size=self.candidates_num )
 
             if len(candidates) < self.candidates_num:
                 sample = np.random.randint(self.n_clusters_labels, size=self.candidates_num - len(candidates))
@@ -113,14 +111,14 @@ class EurLexDataSet(Dataset):
                 candidates = np.random.choice(candidates, self.candidates_num, replace=False)
 
             if self.mode =="train":
-                return input, label_ids[candidates], cluster_labels_ids, candidates
+                return inputs, label_ids[candidates], cluster_labels_ids, candidates
             else:
-                return input, label_ids, cluster_labels_ids, candidates
+                return inputs, label_ids, cluster_labels_ids, candidates
 
         labels_ids= torch.zeros(self.n_labels)
         labels_ids= labels_ids.scatter(0, torch.tensor(labels), torch.tensor([1.0 for i in labels]))
 
-        return input, labels_ids
+        return inputs, labels_ids
 
     def __len__(self):
         return self.len
