@@ -15,8 +15,8 @@ class Classifier(nn.Module):
             self.n_cluster_labels = len(clusters)
             self.l1 = nn.Linear(5000, hidden_dim)
             self.meta = nn.Linear(hidden_dim, self.n_cluster_labels)
-
             self.extreme =nn.Embedding(n_labels, self.n_cluster_labels)
+            nn.init.xavier_uniform_(self.extreme.weight) 
         else:
             self.l1 = nn.Linear(5000, hidden_dim)
             self.meta = nn.Linear(hidden_dim, n_labels)
@@ -85,12 +85,9 @@ class Classifier(nn.Module):
                 b_start=b_end
             labels=torch.stack(new_labels).cuda()
         candidates, group_candidates_scores=  torch.LongTensor(candidates).cuda(), torch.Tensor(group_candidates_scores).cuda()
-
-
         embed_weights = self.extreme(candidates)
         y_emb=y.unsqueeze(-1)
         logits = torch.bmm(embed_weights, y_emb).squeeze(-1)
-
         if is_training:
             loss_fn = torch.nn.BCEWithLogitsLoss()
             loss = loss_fn(logits, labels)

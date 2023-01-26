@@ -10,7 +10,8 @@ from torch.utils.data import Dataset
 import tqdm
 
 def createDataFrame():
-    labels = []
+    labels_train = []
+    labels_test = []
     label_map={}
     dataType=[]
 
@@ -26,7 +27,7 @@ def createDataFrame():
             else:
                 text=l.replace('\n','')
                 parts=text.split(" ",1)
-                labels.append(parts[0])
+                labels_train.append(parts[0])
                 if parts[0]!="":
                     for label in parts[0].split(","):
                         label_map[label] = 0
@@ -46,7 +47,7 @@ def createDataFrame():
             else:
                 text=l.replace('\n','')
                 parts=text.split(" ",1)
-                labels.append(parts[0])
+                labels_test.append(parts[0])
                 if parts[0] != "":
                     for label in parts[0].split(","):
                         if label not in label_map:
@@ -57,8 +58,8 @@ def createDataFrame():
                     inputs_test[i-1,int(index)]=float(value)
 
     print(len(not_in_train))
-    df_train={"input":normalize(inputs_train), "label":labels}
-    df_test = {"input": normalize(inputs_test), "label": labels}
+    df_train={"input":normalize(inputs_train), "label":labels_train}
+    df_test = {"input": normalize(inputs_test), "label": labels_test}
     for i, k in enumerate(sorted(label_map.keys())):
         label_map[k]=i
 
@@ -116,7 +117,7 @@ class EurLexDataSet(Dataset):
                 return inputs, label_ids, cluster_labels_ids, candidates
 
         labels_ids= torch.zeros(self.n_labels)
-        labels_ids= labels_ids.scatter(0, torch.tensor(labels), torch.tensor([1.0 for i in labels]))
+        labels_ids= labels_ids.scatter(0, torch.tensor(labels).to(torch.int64), torch.tensor([1.0 for i in labels]))
 
         return inputs, labels_ids
 

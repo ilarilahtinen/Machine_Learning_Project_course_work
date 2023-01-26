@@ -24,7 +24,7 @@ def train(model,df_train,df_test,label_map,max_len=512, use_clustering=True):
         testloader = DataLoader(test_data, batch_size=16,
                                 shuffle=False)
     model.cuda()
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
     for epoch in range(25):
         train_loss =model.one_epoch(epoch,trainloader,optimizer,eval_loader=testloader)
 
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     clusters=np.load('./data/label_cluster.npy', allow_pickle=True)
     #train_data = EurLexDataSet(df_train, "train", label_map, clusters, 516)
     #data=DataLoader(train_data)
-    model=Classifier(3993,clusters)
+    model=Classifier(len(label_map),clusters)
 
     train(model,df_train,df_test,label_map,use_clustering=True)
 
