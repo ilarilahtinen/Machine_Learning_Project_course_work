@@ -2,7 +2,7 @@ import os
 import tqdm
 import joblib
 import numpy as np
-from scipy.sparse import csr_matrix, csc_matrix
+from scipy.sparse import csr_matrix, csc_matrix, vstack
 from sklearn.preprocessing import normalize
 from sklearn.datasets import load_svmlight_file
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -15,7 +15,10 @@ def get_sparse_feature(feature_file):
 
 def build_tree_by_level(eps: float, max_leaf: int, levels:list, cluster_path):
     print("Clustering")
-    sparse_x, sparse_labels = get_sparse_feature('Eurlex/eurlex_train.txt')
+    sparse_x_train, sparse_labels_train = get_sparse_feature('Eurlex/eurlex_train.txt')
+    sparse_x_test, sparse_labels_test = get_sparse_feature('Eurlex/eurlex_test.txt')
+    sparse_x=vstack((sparse_x_train,sparse_x_test))
+    sparse_labels=np.concatenate((sparse_labels_train,sparse_labels_test),axis=0)
     mlb=MultiLabelBinarizer()
     sparse_y=mlb.fit_transform(sparse_labels)
     joblib.dump(mlb, cluster_path+"mlb")
@@ -63,7 +66,7 @@ def split_node(labels_i: np.ndarray, labels_f: csr_matrix, eps: float):
 
 
 if __name__=='__main__':
-    mlb=build_tree_by_level(1e-4, 100, [], './data')
+    mlb=build_tree_by_level(1e-4, 32, [], './data')
     clusters=np.load(f'./data-last.npy', allow_pickle=True)
     new_clusters=[]
     for cluster in clusters:

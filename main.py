@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from model import Classifier
 
-def train(model,df_train,df_test,label_map,max_len=512, use_clustering=True):
+def train(model,df_train,df_test,label_map,max_len=3112, use_clustering=True):
     if use_clustering:
         clusters=np.load('./data/label_cluster.npy', allow_pickle=True)
         train_data=EurLexDataSet(df_train,"train",label_map,clusters, max_len)
@@ -24,7 +24,7 @@ def train(model,df_train,df_test,label_map,max_len=512, use_clustering=True):
         testloader = DataLoader(test_data, batch_size=16,
                                 shuffle=False)
     model.cuda()
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     for epoch in range(25):
         train_loss =model.one_epoch(epoch,trainloader,optimizer,eval_loader=testloader)
 
@@ -39,6 +39,14 @@ if __name__ == '__main__':
           f'{len(df_train["input"])} train {len(df_test["input"])} test with {len(label_map)} labels done')
     clusters=np.load('./data/label_cluster.npy', allow_pickle=True)
     #train_data = EurLexDataSet(df_train, "train", label_map, clusters, 516)
+    if clusters is not None:
+        _clusters=[]
+        for index, labels in enumerate(clusters):
+            _clusters.append([])
+            for label in labels:
+                _clusters[-1].append(label_map[str(int(label))])
+            _clusters[-1]=np.array(_clusters[-1])
+        clusters=np.array(_clusters, dtype=object)
     #data=DataLoader(train_data)
     model=Classifier(len(label_map),clusters)
 

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 
 class Classifier(nn.Module):
+    #initialize model
     def __init__(self, n_labels, clusters=None, hidden_dim=1000, candidates_topk=10):
         super(Classifier, self).__init__()
         self.candidates_topk=candidates_topk
@@ -25,30 +26,39 @@ class Classifier(nn.Module):
         logits=torch.sigmoid(cluster_logits.detach())
         if cluster_gd is not None:
             logits+=cluster_gd
+        #get indexes for topk best performing cluster
         scores, indices =torch.topk(logits, k=self.candidates_topk)
         scores, indices = scores.cpu().detach().numpy(), indices.cpu().detach().numpy()
-
+        #initialize variables
         candidates, candidates_scores =[], []
-
+        #loop through variables
         for index, score in zip(indices, scores):
+            # add labels from cluster to the candidates array
             candidates.append(self.clusters[index])
+            # add scores to array
             candidates_scores.append([np.full(len(c), s) for c,s in zip(candidates[-1],score)])
+            # as model process multiple samples simultaneously there are two -dim arrays which are now flatten
             candidates[-1]=np.concatenate(candidates[-1])
             candidates_scores[-1]=np.concatenate(candidates_scores[-1])
         max_candidates =max([i.shape[0] for i in candidates])
+        # make all arrays equally long and stack them to numpy array
         candidates = np.stack([np.pad(i, (0, max_candidates - i.shape[0]), mode='edge') for i in candidates])
         candidates_scores = np.stack([np.pad(i, (0, max_candidates - i.shape[0]), mode='edge') for i in candidates_scores])
+        # cluster indices, candidates label, cluster scores for each candidate label
         return indices, candidates, candidates_scores
 
     def forward(self, inputs, labels=None, cluster_labels=None, candidates=None):
         is_training=labels is not None
         inputs=inputs.to(torch.float32)
+        #feed forward
         y=self.l1(inputs)
         y=F.relu(y)
         y=self.meta(y)
 
 
         if self.clusters is None:
+            # If there are no clusters either return loss and prediction
+            # or only prediction
             if is_training:
                 loss_fn= nn.BCEWithLogitsLoss()
                 loss = loss_fn(y, labels)
@@ -57,7 +67,9 @@ class Classifier(nn.Module):
                 return y
 
         if is_training:
+            # change target labels from number format to boolean
             l=labels.to(dtype=torch.bool)
+            # select label indexes which are correct 
             target_candidates = torch.masked_select(candidates, l).detach().cpu()
             target_candidates_num =l.sum(dim=1).detach().cpu()
 
