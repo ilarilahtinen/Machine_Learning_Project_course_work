@@ -76,16 +76,18 @@ def createDataFrame():
     return df_train,df_test, label_map
 
 class EurLexDataSet(Dataset):
-    def __init__(self,df,mode,label_map, clusters=None, candidates_num=None):
+    def __init__(self,df,mode,label_map, clusters=None, candidates_num=None, sampling="lightxml"):
         self.mode=mode
+        self.sampling=sampling
         self.df=df
         self.n_labels=len(label_map)
         self.label_map=label_map
+        self.sampling=sampling
         self.len=len(self.df["input"])
-
+        self.candidates_num=candidates_num
+        
         if clusters is not None:
             # amount of cluster caandidates
-            self.candidates_num=candidates_num
             self.clusters=[]
             # amount of clusters
             self.n_clusters_labels=len(clusters)
@@ -125,7 +127,7 @@ class EurLexDataSet(Dataset):
                 candidates = np.concatenate([candidates, sample])
             elif len(candidates) > self.candidates_num:
                 candidates = np.random.choice(candidates, self.candidates_num, replace=False)
-
+            
             if self.mode =="train":
                 # inputs, is label correct for candidates, is cluster correct, candidate labels
                 return inputs, label_ids[candidates], cluster_labels_ids, candidates
@@ -135,7 +137,10 @@ class EurLexDataSet(Dataset):
 
         labels_ids= torch.zeros(self.n_labels)
         labels_ids= labels_ids.scatter(0, torch.tensor(labels).to(torch.int64), torch.tensor([1.0 for i in labels]))
-
+        if self.sampling=="uniform":
+            negative_labels=np.arange(self.n_labels)[labels_ids==0]
+            uniform_candidates=np.random.choice(negative_labels, self.candidates_num, replace=False)
+            return inputs, labels_ids,uniform_candidates
         return inputs, labels_ids
 
     def __len__(self):

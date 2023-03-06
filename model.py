@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 class Classifier(nn.Module):
     #initialize model
-    def __init__(self, n_labels, clusters=None, hidden_dim=1000, candidates_topk=10):
+    def __init__(self, n_labels, clusters=None, hidden_dim=1000, candidates_topk=10,sampling="lightxml"):
         super(Classifier, self).__init__()
         self.candidates_topk=candidates_topk
 
@@ -47,7 +47,7 @@ class Classifier(nn.Module):
         # cluster indices, candidates label, cluster scores for each candidate label
         return indices, candidates, candidates_scores
 
-    def forward(self, inputs, labels=None, cluster_labels=None, candidates=None):
+    def forward(self, inputs, labels=None, cluster_labels=None, candidates=None,uniform_candidates=None):
         is_training=labels is not None
         inputs=inputs.to(torch.float32)
         #feed forward
@@ -61,11 +61,16 @@ class Classifier(nn.Module):
             # or only prediction
             if is_training:
                 loss_fn= nn.BCEWithLogitsLoss()
+                if uniform_candidates is not None:
+                    mask=torch.zeros(y.size()).cuda()
+                    mask=mask.scatter(1,uniform_candidates,torch.ones(uniform_candidates.size()).cuda()).to(dtype=bool).cuda()    
+                    y_u=y.masked_select(mask).view(y.size(0),-1)
+                    labels_u=labels.masked_select(mask).view(labels.size(0),-1)
+                    loss=loss_fn(y_u,labels_u)
                 loss = loss_fn(y, labels)
                 return y, loss
             else:
                 return y
-
         if is_training:
             # change target labels from number format to boolean
             l=labels.to(dtype=torch.bool)
@@ -96,20 +101,20 @@ class Classifier(nn.Module):
                                 break
                 b_start=b_end
             labels=torch.stack(new_labels).cuda()
-        candidates, group_candidates_scores=  torch.LongTensor(candidates).cuda(), torch.Tensor(group_candidates_scores).cuda()
-        embed_weights = self.extreme(candidates)
-        y_emb=y.unsqueeze(-1)
-        logits = torch.bmm(embed_weights, y_emb).squeeze(-1)
-        if is_training:
-            loss_fn = torch.nn.BCEWithLogitsLoss()
-            loss = loss_fn(logits, labels)
+            candidates, group_candidates_scores=  torch.LongTensor(candidates).cuda(), torch.Tensor(group_candidates_scores).cuda()
+            embed_weights = self.extreme(candidates)
+            y_emb=y.unsqueeze(-1)
+            logits = torch.bmm(embed_weights, y_emb).squeeze(-1)
+            if is_training:
+                loss_fn = torch.nn.BCEWithLogitsLoss()
+                loss = loss_fn(logits, labels)
 
-            loss+= loss_fn(y, cluster_labels)
-            return logits, loss
-        else:
-            candidates_scores = torch.sigmoid(logits)
-            candidates_scores = candidates_scores * group_candidates_scores
-            return y, candidates, candidates_scores
+                loss+= loss_fn(y, cluster_labels)
+                return logits, loss
+            else:
+                candidates_scores = torch.sigmoid(logits)
+                candidates_scores = candidates_scores * group_candidates_scores
+                return y, candidates, candidates_scores
 
     def get_accuracy(self, candidates, logits, labels):
         if candidates is not None:
@@ -133,7 +138,7 @@ class Classifier(nn.Module):
 
         return total, acc1, acc3, acc5
 
-    def one_epoch(self, epoch, dataloader, optimizer, mode="train", eval_loader=None, eval_step=20000, log=None):
+    def one_epoch(self, epoch, dataloader, optimizer, mode="train", eval_loader=None, eval_step=20000, log=None,uniform_sampling=False):
         bar = tqdm.tqdm(total=len(dataloader))
         precision1, precision3, precision5 = 0, 0, 0
         g_precision1, g_precision3, g_precision5 = 0, 0, 0
@@ -157,10 +162,11 @@ class Classifier(nn.Module):
 
                 if mode=='train':
                     input_params['labels']=batch[1].cuda()
-
                     if self.clusters is not None:
                         input_params['cluster_labels']=batch[2].cuda()
                         input_params['candidates']=batch[3].cuda()
+                    elif uniform_sampling:
+                        input_params['uniform_candidates']=batch[2].cuda()
                 outputs=self(**input_params)
 
                 bar.update(1)
