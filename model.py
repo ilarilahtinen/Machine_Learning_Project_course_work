@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 class Classifier(nn.Module):
     #initialize model
-    def __init__(self, n_labels, clusters=None, hidden_dim=1000, candidates_topk=10,sampling="lightxml"):
+    def __init__(self, n_labels, clusters=None, hidden_dim=1000, candidates_topk=10):
         super(Classifier, self).__init__()
         self.candidates_topk=candidates_topk
 
@@ -16,11 +16,12 @@ class Classifier(nn.Module):
             self.n_cluster_labels = len(clusters)
             self.l1 = nn.Linear(5000, hidden_dim)
             self.meta = nn.Linear(hidden_dim, self.n_cluster_labels)
-            self.extreme =nn.Embedding(n_labels, self.n_cluster_labels)
+            self.extreme =nn.Embedding(n_labels,hidden_dim)
             nn.init.xavier_uniform_(self.extreme.weight) 
         else:
             self.l1 = nn.Linear(5000, hidden_dim)
             self.meta = nn.Linear(hidden_dim, n_labels)
+            self.emb= nn.Embedding(n_labels,n_labels)
 
     def get_candidates(self, cluster_logits, cluster_gd=None):
         logits=torch.sigmoid(cluster_logits.detach())
@@ -52,8 +53,8 @@ class Classifier(nn.Module):
         inputs=inputs.to(torch.float32)
         #feed forward
         y=self.l1(inputs)
-        y=F.relu(y)
-        y=self.meta(y)
+        hidden_output=F.relu(y)
+        meta_output=self.meta(y)
 
 
         if self.clusters is None:
@@ -62,12 +63,10 @@ class Classifier(nn.Module):
             if is_training:
                 loss_fn= nn.BCEWithLogitsLoss()
                 if uniform_candidates is not None:
-                    mask=torch.zeros(y.size()).cuda()
-                    mask=mask.scatter(1,uniform_candidates,torch.ones(uniform_candidates.size()).cuda()).to(dtype=bool).cuda()    
-                    y_u=y.masked_select(mask).view(y.size(0),-1)
-                    labels_u=labels.masked_select(mask).view(labels.size(0),-1)
-                    loss=loss_fn(y_u,labels_u)
-                loss = loss_fn(y, labels)
+                    emb_candidates=self.emb(uniform_candidates)
+                    output=torch.bmm(emb_candidates,meta_output)
+                    loss= loss_fn(output,labels)
+                loss = loss_fn(meta_output, labels)
                 return y, loss
             else:
                 return y
@@ -78,7 +77,7 @@ class Classifier(nn.Module):
             target_candidates = torch.masked_select(candidates, l).detach().cpu()
             target_candidates_num =l.sum(dim=1).detach().cpu()
 
-        clusters, candidates, group_candidates_scores = self.get_candidates(y,
+        clusters, candidates, group_candidates_scores = self.get_candidates(meta_output,
                                                                           cluster_gd=cluster_labels if is_training else None)
         if is_training:
             b_start=0
@@ -101,20 +100,20 @@ class Classifier(nn.Module):
                                 break
                 b_start=b_end
             labels=torch.stack(new_labels).cuda()
-            candidates, group_candidates_scores=  torch.LongTensor(candidates).cuda(), torch.Tensor(group_candidates_scores).cuda()
-            embed_weights = self.extreme(candidates)
-            y_emb=y.unsqueeze(-1)
-            logits = torch.bmm(embed_weights, y_emb).squeeze(-1)
-            if is_training:
-                loss_fn = torch.nn.BCEWithLogitsLoss()
-                loss = loss_fn(logits, labels)
+        candidates, group_candidates_scores=  torch.LongTensor(candidates).cuda(), torch.Tensor(group_candidates_scores).cuda()
+        embed_weights = self.extreme(candidates)
+        hidden_output_emb=hidden_output.unsqueeze(-1)
+        logits = torch.bmm(embed_weights, hidden_output_emb).squeeze(-1)
+        if is_training:
+            loss_fn = torch.nn.BCEWithLogitsLoss()
+            loss = loss_fn(logits, labels)
 
-                loss+= loss_fn(y, cluster_labels)
-                return logits, loss
-            else:
-                candidates_scores = torch.sigmoid(logits)
-                candidates_scores = candidates_scores * group_candidates_scores
-                return y, candidates, candidates_scores
+            loss+= loss_fn(meta_output, cluster_labels)
+            return logits, loss
+        else:
+            candidates_scores = torch.sigmoid(logits)
+            candidates_scores = candidates_scores * group_candidates_scores
+            return y, candidates, candidates_scores
 
     def get_accuracy(self, candidates, logits, labels):
         if candidates is not None:
