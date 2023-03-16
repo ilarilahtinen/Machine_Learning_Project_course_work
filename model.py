@@ -54,7 +54,7 @@ class Classifier(nn.Module):
         #feed forward
         y=self.l1(inputs)
         hidden_output=F.relu(y)
-        meta_output=self.meta(y)
+        meta_output=self.meta(hidden_output)
 
 
         if self.clusters is None:
