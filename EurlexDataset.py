@@ -140,7 +140,7 @@ class EurLexDataSet(Dataset):
         if self.sampling=="uniform":
             negative_labels=np.arange(self.n_labels)[labels_ids==0]
             uniform_candidates=np.random.choice(negative_labels, self.candidates_num-len(labels), replace=False)
-            return inputs, labels_ids,np.concatenate(uniform_candidates,labels)
+            return inputs, labels_ids,np.concatenate((uniform_candidates,np.array(labels)), axis=None)
         return inputs, labels_ids
 
     def __len__(self):

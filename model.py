@@ -64,8 +64,13 @@ class Classifier(nn.Module):
                 loss_fn= nn.BCEWithLogitsLoss()
                 if uniform_candidates is not None:
                     emb_candidates=self.emb(uniform_candidates)
-                    output=torch.bmm(emb_candidates,meta_output)
+                    meta_output_emb=meta_output.unsqueeze(-1)
+                    print(uniform_candidates.size())
+                    print(emb_candidates.size())
+                    print(meta_output_emb.size())
+                    output=torch.bmm(emb_candidates,meta_output_emb).squeeze(-1)
                     loss= loss_fn(output,labels)
+                    return y, loss
                 loss = loss_fn(meta_output, labels)
                 return y, loss
             else:

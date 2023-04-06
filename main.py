@@ -7,6 +7,7 @@ from model import Classifier
 import argparse
 
 def train(model,df_train,df_test,label_map,lr,epochs,max_len=3112, use_clustering=True,sampling="lightxml"):
+    print("use clustering")
     print(use_clustering)
     if use_clustering:
         clusters=np.load('./data/label_cluster.npy', allow_pickle=True)
@@ -33,7 +34,10 @@ def train(model,df_train,df_test,label_map,lr,epochs,max_len=3112, use_clusterin
         ev_result = model.one_epoch(epoch, testloader, optimizer, mode='eval')
 
 parser=argparse.ArgumentParser()
-parser.add_argument('--use_clustering',type=bool,required=False, default=True)
+
+parser.add_argument('--use_clustering', action="store_true")
+parser.add_argument('--no_clustering', dest="use_clustering", action="store_false")
+parser.set_defaults(use_clustering=True)
 parser.add_argument('--lr',type=float,required=False, default=0.001)
 parser.add_argument('--epochs',type=int,required=False, default=25)
 parser.add_argument('--hidden_dim',type=int,required=False, default=1000)
