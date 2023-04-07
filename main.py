@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from model import Classifier
 import argparse
 
-def train(model,df_train,df_test,label_map,lr,epochs,max_len=3112, use_clustering=True,sampling="lightxml"):
+def train(model,df_train,df_test,label_map,lr,epochs,max_len=512, use_clustering=True,sampling="lightxml"):
     print("use clustering")
     print(use_clustering)
     if use_clustering:
@@ -20,7 +20,7 @@ def train(model,df_train,df_test,label_map,lr,epochs,max_len=3112, use_clusterin
                                 shuffle=False)
     else:
         train_data = EurLexDataSet(df_train, "train", label_map, candidates_num=max_len,sampling=args.sampling)
-        test_data = EurLexDataSet(df_test, "test", label_map, candidates_num= max_len)
+        test_data = EurLexDataSet(df_test, "test", label_map, candidates_num= max_len,sampling=args.sampling)
 
         trainloader = DataLoader(train_data, batch_size=16,
                                  shuffle=True)
