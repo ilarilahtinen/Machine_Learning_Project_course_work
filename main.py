@@ -29,9 +29,9 @@ def train(model,df_train,df_test,label_map,lr,epochs,max_len=512, use_clustering
     model.cuda()
     optimizer = optim.Adam(model.parameters(), lr=lr)
     for epoch in range(epochs):
-        train_loss =model.one_epoch(epoch,trainloader,optimizer,eval_loader=testloader,uniform_sampling=(args.sampling=="uniform"))
+        train_loss =model.one_epoch(epoch,trainloader,optimizer,eval_loader=testloader,uniform_sampling=(sampling=="uniform"))
 
-        ev_result = model.one_epoch(epoch, testloader, optimizer, mode='eval')
+        ev_result = model.one_epoch(epoch, testloader, optimizer, mode='eval',uniform_sampling=(sampling=="uniform"))
 
 parser=argparse.ArgumentParser()
 
