@@ -137,7 +137,7 @@ class EurLexDataSet(Dataset):
 
         labels_ids= torch.zeros(self.n_labels)
         labels_ids= labels_ids.scatter(0, torch.tensor(labels).to(torch.int64), torch.tensor([1.0 for i in labels]))
-        if self.sampling=="uniform":
+        if self.sampling=="uniform" and self.mode=="train":
             negative_labels=np.arange(self.n_labels)[labels_ids==0]
             uniform_candidates=np.random.choice(negative_labels, self.candidates_num-len(labels), replace=False)
             labels_ids=np.zeros(self.candidates_num)

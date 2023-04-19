@@ -10,7 +10,7 @@ class Classifier(nn.Module):
     def __init__(self, n_labels, clusters=None, hidden_dim=1000, candidates_topk=10):
         super(Classifier, self).__init__()
         self.candidates_topk=candidates_topk
-
+        self.n_labels=n_labels
         self.clusters=clusters
         if self.clusters is not None:
             self.n_cluster_labels = len(clusters)
@@ -75,7 +75,9 @@ class Classifier(nn.Module):
                 if uniform_candidates is None:
                     return meta_output
                 else:
-                    return torch.mm(hidden_output_emb, emb_candidates.T) 
+                    emb_candidates=self.emb(uniform_candidates)
+                    hidden_output_emb=hidden_output.unsqueeze(-1)
+                    return torch.mm(hidden_output, emb_candidates.T) 
         if is_training:
             # change target labels from number format to boolean
             l=labels.to(dtype=torch.bool)
@@ -172,6 +174,8 @@ class Classifier(nn.Module):
                         input_params['candidates']=batch[3].cuda()
                     elif uniform_sampling:
                         input_params['uniform_candidates']=batch[2].int().cuda()
+                elif uniform_sampling:
+                    input_params['uniform_candidates']=torch.arange(self.n_labels).cuda()
                 outputs=self(**input_params)
 
                 bar.update(1)
